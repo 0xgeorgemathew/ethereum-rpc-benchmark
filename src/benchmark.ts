@@ -16,13 +16,38 @@ interface BenchmarkResult {
   totalTime: number;
 }
 
-
 interface BenchmarkOptions {
   numRequests: number;
   concurrency: number;
   warmup: boolean;
   cooldown: number;
   timeout: number;
+}
+
+// Define interface for the results JSON
+interface BenchmarkResultsJson {
+  timestamp: string;
+  networkInfo: {
+    name: string;
+    chainId: number;
+  };
+  benchmarkOptions: BenchmarkOptions;
+  results: BenchmarkResult[];
+  rankings: {
+    byLatency: {
+      title: string;
+      rankings: string[];
+    };
+    byThroughput: {
+      title: string;
+      rankings: string[];
+    };
+  };
+  maxThroughputTest?: {
+    method: string;
+    maxThroughput: number;
+    optimalConcurrency: number;
+  };
 }
 
 async function sleep(ms: number) {
@@ -61,7 +86,6 @@ async function benchmarkRPC(
 
   const startTime = performance.now();
 
-  
   for (let i = 0; i < numRequests; i += concurrency) {
     const batchSize = Math.min(concurrency, numRequests - i);
     const batch = Array(batchSize)
@@ -173,6 +197,7 @@ function generateMethodComparisons(results: BenchmarkResult[]) {
     }
   };
 }
+
 async function findMaxThroughput(
   provider: ethers.providers.JsonRpcProvider,
   method: string,
@@ -205,7 +230,7 @@ async function findMaxThroughput(
       // Run a time-limited test
       const testStartTime = performance.now();
       let successCount = 0;
-      const batchPromises = [];
+      const batchPromises: Promise<void>[] = [];
       
       // Keep sending requests until test duration is reached
       while (performance.now() - testStartTime < durationPerTest) {
@@ -301,36 +326,39 @@ async function main() {
     }
   }
   
- 
+  // Print standard benchmark results
   printResults(results);
   
   // Check if we should run the max RPS test
-  const findMaxRps = 'true';
+  const findMaxRps = process.env.FIND_MAX_RPS === 'true';
+  // Store the max throughput results
+  let maxThroughputResults: { maxThroughput: number, optimalConcurrency: number } | null = null;
+  
   if (findMaxRps) {
     console.log("\n📈 Finding maximum RPS for selected methods...");
     
-   
+    // You can choose which methods to test for max throughput
     const methodToTest = "getBlockNumber"; 
-    const params = []; 
+    const methodParams: any[] = []; // Explicit typing for params
     
-    const { maxThroughput, optimalConcurrency } = await findMaxThroughput(
+    maxThroughputResults = await findMaxThroughput(
       provider,
       methodToTest,
-      params
+      methodParams
     );
     
     console.log("\n🚀 Maximum Throughput Results");
     console.log("============================");
     console.log(`Method: ${methodToTest}`);
-    console.log(`Max Throughput: ${maxThroughput.toFixed(2)} req/s`);
-    console.log(`Optimal Concurrency: ${optimalConcurrency}`);
+    console.log(`Max Throughput: ${maxThroughputResults.maxThroughput.toFixed(2)} req/s`);
+    console.log(`Optimal Concurrency: ${maxThroughputResults.optimalConcurrency}`);
   }
   
- 
+  // Generate method comparisons
   const methodComparisons = generateMethodComparisons(results);
   
   const timestamp = new Date().toISOString();
-  const resultsJson = {
+  const resultsJson: BenchmarkResultsJson = {
     timestamp,
     networkInfo: {
       name: network.name,
@@ -345,11 +373,11 @@ async function main() {
   };
   
   // Add max throughput results to JSON if they were calculated
-  if (findMaxRps) {
+  if (findMaxRps && maxThroughputResults) {
     resultsJson.maxThroughputTest = {
       method: "getBlockNumber",
-      maxThroughput,
-      optimalConcurrency
+      maxThroughput: maxThroughputResults.maxThroughput,
+      optimalConcurrency: maxThroughputResults.optimalConcurrency
     };
   }
   
