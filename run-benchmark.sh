@@ -23,10 +23,12 @@ else
   echo "✅ Set RPC endpoint from user input"
 fi
 
-# Add dotenv to the benchmark script
+# Add dotenv to the benchmark script if it's not already there
 if ! grep -q "require('dotenv').config()" src/benchmark.ts; then
-  # Add dotenv import at the beginning of the file
-  sed -i '1s/^/require("dotenv").config();\n/' src/benchmark.ts
+  # Use a different approach to add the dotenv line
+  echo 'require("dotenv").config();' > temp_file
+  cat src/benchmark.ts >> temp_file
+  mv temp_file src/benchmark.ts
   echo "✅ Added dotenv configuration to benchmark script"
 fi
 
