@@ -16,11 +16,6 @@ interface BenchmarkResult {
   totalTime: number;
 }
 
-// No longer needed since we're using string format
-// interface RankingResult {
-//   method: string;
-//   value: number;
-// }
 
 interface BenchmarkOptions {
   numRequests: number;
@@ -154,23 +149,28 @@ function printResults(results: BenchmarkResult[]) {
 }
 
 function generateMethodComparisons(results: BenchmarkResult[]) {
-  // Create comparison text exactly as shown in the terminal output
+  // Create comparison arrays to be formatted properly in JSON
   const byLatency = [...results].sort((a, b) => a.avgLatency - b.avgLatency);
   const byThroughput = [...results].sort((a, b) => b.throughput - a.throughput);
   
-  let latencyComparison = "Methods ranked by average latency:";
-  byLatency.forEach((result, index) => {
-    latencyComparison += `\n${index + 1}. ${result.method}: ${result.avgLatency.toFixed(2)} ms`;
-  });
+  // Create arrays of formatted lines
+  const latencyLines = byLatency.map((result, index) => 
+    `${index + 1}. ${result.method}: ${result.avgLatency.toFixed(2)} ms`
+  );
   
-  let throughputComparison = "Methods ranked by throughput:";
-  byThroughput.forEach((result, index) => {
-    throughputComparison += `\n${index + 1}. ${result.method}: ${result.throughput.toFixed(2)} req/s`;
-  });
+  const throughputLines = byThroughput.map((result, index) => 
+    `${index + 1}. ${result.method}: ${result.throughput.toFixed(2)} req/s`
+  );
   
   return {
-    latencyComparison,
-    throughputComparison
+    byLatency: {
+      title: "Methods ranked by average latency:",
+      rankings: latencyLines
+    },
+    byThroughput: {
+      title: "Methods ranked by throughput:",
+      rankings: throughputLines
+    }
   };
 }
 
@@ -229,7 +229,10 @@ async function main() {
     },
     benchmarkOptions,
     results,
-    methodComparisons
+    rankings: {
+      byLatency: methodComparisons.byLatency,
+      byThroughput: methodComparisons.byThroughput
+    }
   };
 
   console.log(`\n💾 Results exported to 'benchmark_results_${timestamp}.json'`);
