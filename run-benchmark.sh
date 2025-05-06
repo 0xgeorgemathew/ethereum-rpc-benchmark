@@ -3,61 +3,37 @@
 # Make sure we exit on any error
 set -e
 
-# Create temporary directory
-TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'rpc-benchmark')
-cd "$TEMP_DIR"
-
-echo "📥 Downloading RPC benchmark script..."
-# Replace with your actual GitHub repo URL and path
-GITHUB_RAW_URL="https://raw.githubusercontent.com/0xgeorgemathew/ethereum-rpc-benchmark/main/src/benchmark.ts"
-mkdir -p src
-curl -s "$GITHUB_RAW_URL" -o "src/benchmark.ts"
-
-echo "📦 Setting up project files..."
-# Create package.json
-cat > package.json << 'EOF'
-{
-  "name": "ethereum-rpc-benchmark",
-  "version": "1.0.0",
-  "description": "Benchmark Ethereum RPC endpoints",
-  "main": "dist/benchmark.js",
-  "scripts": {
-    "build": "tsc",
-    "start": "node dist/benchmark.js",
-    "benchmark": "npm run build && npm run start"
-  },
-  "dependencies": {
-    "ethers": "^5.7.2"
-  },
-  "devDependencies": {
-    "@types/node": "^18.11.18",
-    "typescript": "^4.9.4"
-  }
-}
-EOF
-
-# Create tsconfig.json
-cat > tsconfig.json << 'EOF'
-{
-  "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
-    "outDir": "./dist",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": ["src/**/*"]
-}
-EOF
+echo "📥 Cloning Ethereum RPC benchmark repository..."
+git clone https://github.com/0xgeorgemathew/ethereum-rpc-benchmark.git
+cd ethereum-rpc-benchmark
 
 echo "🔧 Installing dependencies..."
 npm install
+npm install dotenv --save
+
+# Create a .env file with the provided RPC endpoint
+if [ -n "$RPC_ENDPOINT" ]; then
+  echo "RPC_ENDPOINT=$RPC_ENDPOINT" > .env
+  echo "✅ Set RPC endpoint from environment variable"
+else
+  echo "⚠️ No RPC_ENDPOINT environment variable provided!"
+  echo "Please provide your Ethereum RPC endpoint:"
+  read -p "RPC Endpoint URL: " USER_ENDPOINT
+  echo "RPC_ENDPOINT=$USER_ENDPOINT" > .env
+  echo "✅ Set RPC endpoint from user input"
+fi
+
+# Add dotenv to the benchmark script
+if ! grep -q "require('dotenv').config()" src/benchmark.ts; then
+  # Add dotenv import at the beginning of the file
+  sed -i '1s/^/require("dotenv").config();\n/' src/benchmark.ts
+  echo "✅ Added dotenv configuration to benchmark script"
+fi
 
 echo "🔄 Building TypeScript code..."
 npm run build
 
-echo "🚀 Running RPC benchmark with endpoint: ${RPC_ENDPOINT:-default endpoint}"
-RPC_ENDPOINT="${RPC_ENDPOINT}" npm run start
+echo "🚀 Running RPC benchmark..."
+npm start
+
 echo "✅ Benchmark completed!"
