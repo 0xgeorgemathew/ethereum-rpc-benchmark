@@ -16,6 +16,11 @@ interface BenchmarkResult {
   totalTime: number;
 }
 
+interface RankingResult {
+  method: string;
+  value: number;
+}
+
 interface BenchmarkOptions {
   numRequests: number;
   concurrency: number;
@@ -147,8 +152,29 @@ function printResults(results: BenchmarkResult[]) {
   }
 }
 
+function generateRankings(results: BenchmarkResult[]) {
+  const latencyRankings: RankingResult[] = [...results]
+    .sort((a, b) => a.avgLatency - b.avgLatency)
+    .map((result) => ({ 
+      method: result.method, 
+      value: parseFloat(result.avgLatency.toFixed(2)) 
+    }));
+
+  const throughputRankings: RankingResult[] = [...results]
+    .sort((a, b) => b.throughput - a.throughput)
+    .map((result) => ({ 
+      method: result.method, 
+      value: parseFloat(result.throughput.toFixed(2)) 
+    }));
+
+  return {
+    byLatency: latencyRankings,
+    byThroughput: throughputRankings
+  };
+}
+
 async function main() {
-  const nodeop =  process.env.RPC_ENDPOINT;
+  const nodeop = process.env.RPC_ENDPOINT;
   const provider = new ethers.providers.JsonRpcProvider(nodeop);
 
   console.log("🔌 Connected to RPC endpoint:", nodeop);
@@ -190,6 +216,9 @@ async function main() {
 
   printResults(results);
 
+  // Generate rankings
+  const rankings = generateRankings(results);
+
   const timestamp = new Date().toISOString();
   const resultsJson = {
     timestamp,
@@ -199,9 +228,10 @@ async function main() {
     },
     benchmarkOptions,
     results,
+    rankings
   };
 
-  console.log(`\n💾 Results exported to '${timestamp}benchmark_results.json'`);
+  console.log(`\n💾 Results exported to 'benchmark_results_${timestamp}.json'`);
   require("fs").writeFileSync(`benchmark_results_${timestamp}.json`, JSON.stringify(resultsJson, null, 2));
 }
 
