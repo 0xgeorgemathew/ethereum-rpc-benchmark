@@ -1,41 +1,44 @@
 #!/usr/bin/env bash
 
-# Make sure we exit on any error
+# Ethereum RPC Benchmark Runner
+# This script downloads and runs the Ethereum RPC benchmark tool
+
+# Exit on any error
 set -e
 
-echo "📥 Cloning Ethereum RPC benchmark repository..."
-git clone https://github.com/0xgeorgemathew/ethereum-rpc-benchmark.git
-cd ethereum-rpc-benchmark
+# Check if RPC endpoint was provided
+if [ -z "$1" ]; then
+  echo "❌ Error: RPC endpoint URL is required"
+  echo "Usage: $0 <rpc-endpoint-url>"
+  exit 1
+fi
 
-echo "🔧 Installing dependencies..."
+RPC_ENDPOINT="$1"
+echo "🔌 Using RPC endpoint: $RPC_ENDPOINT"
+
+# Create temporary directory
+TEMP_DIR=$(mktemp -d 2>/dev/null || mktemp -d -t 'ethereum-rpc-benchmark')
+cd "$TEMP_DIR"
+echo "📂 Working directory: $TEMP_DIR"
+
+# Clone the repository
+echo "📥 Cloning repository from GitHub..."
+git clone https://github.com/0xgeorgemathew/ethereum-rpc-benchmark.git .
+
+# Install dependencies
+echo "📦 Installing dependencies..."
 npm install
-npm install dotenv --save
 
-# Create a .env file with the provided RPC endpoint
-if [ -n "$RPC_ENDPOINT" ]; then
-  echo "RPC_ENDPOINT=$RPC_ENDPOINT" > .env
-  echo "✅ Set RPC endpoint from environment variable"
-else
-  echo "⚠️ No RPC_ENDPOINT environment variable provided!"
-  echo "Please provide your Ethereum RPC endpoint:"
-  read -p "RPC Endpoint URL: " USER_ENDPOINT
-  echo "RPC_ENDPOINT=$USER_ENDPOINT" > .env
-  echo "✅ Set RPC endpoint from user input"
-fi
+# Create .env file with RPC endpoint
+echo "RPC_ENDPOINT=$RPC_ENDPOINT" > .env
+echo "✅ Created .env file with your RPC endpoint"
 
-# Add dotenv to the benchmark script if it's not already there
-if ! grep -q "require('dotenv').config()" src/benchmark.ts; then
-  # Use a different approach to add the dotenv line
-  echo 'require("dotenv").config();' > temp_file
-  cat src/benchmark.ts >> temp_file
-  mv temp_file src/benchmark.ts
-  echo "✅ Added dotenv configuration to benchmark script"
-fi
-
-echo "🔄 Building TypeScript code..."
+# Build and run the benchmark
+echo "🔨 Building TypeScript code..."
 npm run build
 
-echo "🚀 Running RPC benchmark..."
+echo "🚀 Running benchmark..."
 npm start
 
 echo "✅ Benchmark completed!"
+echo "Results are saved in the current directory: $(pwd)"
