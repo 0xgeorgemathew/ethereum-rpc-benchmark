@@ -16,10 +16,11 @@ interface BenchmarkResult {
   totalTime: number;
 }
 
-interface RankingResult {
-  method: string;
-  value: number;
-}
+// No longer needed since we're using string format
+// interface RankingResult {
+//   method: string;
+//   value: number;
+// }
 
 interface BenchmarkOptions {
   numRequests: number;
@@ -152,24 +153,24 @@ function printResults(results: BenchmarkResult[]) {
   }
 }
 
-function generateRankings(results: BenchmarkResult[]) {
-  const latencyRankings: RankingResult[] = [...results]
-    .sort((a, b) => a.avgLatency - b.avgLatency)
-    .map((result) => ({ 
-      method: result.method, 
-      value: parseFloat(result.avgLatency.toFixed(2)) 
-    }));
-
-  const throughputRankings: RankingResult[] = [...results]
-    .sort((a, b) => b.throughput - a.throughput)
-    .map((result) => ({ 
-      method: result.method, 
-      value: parseFloat(result.throughput.toFixed(2)) 
-    }));
-
+function generateMethodComparisons(results: BenchmarkResult[]) {
+  // Create comparison text exactly as shown in the terminal output
+  const byLatency = [...results].sort((a, b) => a.avgLatency - b.avgLatency);
+  const byThroughput = [...results].sort((a, b) => b.throughput - a.throughput);
+  
+  let latencyComparison = "Methods ranked by average latency:";
+  byLatency.forEach((result, index) => {
+    latencyComparison += `\n${index + 1}. ${result.method}: ${result.avgLatency.toFixed(2)} ms`;
+  });
+  
+  let throughputComparison = "Methods ranked by throughput:";
+  byThroughput.forEach((result, index) => {
+    throughputComparison += `\n${index + 1}. ${result.method}: ${result.throughput.toFixed(2)} req/s`;
+  });
+  
   return {
-    byLatency: latencyRankings,
-    byThroughput: throughputRankings
+    latencyComparison,
+    throughputComparison
   };
 }
 
@@ -216,8 +217,8 @@ async function main() {
 
   printResults(results);
 
-  // Generate rankings
-  const rankings = generateRankings(results);
+  // Generate method comparisons
+  const methodComparisons = generateMethodComparisons(results);
 
   const timestamp = new Date().toISOString();
   const resultsJson = {
@@ -228,7 +229,7 @@ async function main() {
     },
     benchmarkOptions,
     results,
-    rankings
+    methodComparisons
   };
 
   console.log(`\n💾 Results exported to 'benchmark_results_${timestamp}.json'`);
